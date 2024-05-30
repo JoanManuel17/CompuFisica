@@ -1,0 +1,129 @@
+int s_f = A0; // Sensor de fuerza en el pin A0
+int force_rgb_r = 1; // Conexión del pin rojo del LED RGB para feedback del sensor de fuerza
+int force_rgb_g = 2; // Conexión del pin verde del LED RGB para feedback del sensor de fuerza
+int force_rgb_b = 3; // Conexión del pin azul del LED RGB para feedback del sensor de fuerza
+int s_1 = 5; // Sensor de toque 1
+int s_2 = 6; // Sensor de toque 2
+int s_3 = 7; // Sensor de toque 3 
+int touch_rgb_r = 8; // Conexión del pin rojo del LED RGB para feedback del sensor de toque 1
+int touch_rgb_g = 9; // Conexión del pin verde del LED RGB para feedback del sensor de toque 2
+int touch_rgb_b = 10; // Conexión del pin azul del LED RGB para feedback del sensor de toque 3
+int s_actual_1;
+int s_actual_2;
+int s_actual_3; // Variable para el tercer sensor de toque
+int fuerza;
+
+// Definir los rangos y colores asociados a cada tipo de cubo
+const int RANGO_LIVIANO_MIN = 540;
+const int RANGO_LIVIANO_MAX = 900;
+const int RANGO_MEDIANO_MIN = 400;
+const int RANGO_MEDIANO_MAX = 510;
+const int RANGO_PESADO_MIN = 260;
+const int RANGO_PESADO_MAX = 388;
+const int RANGO_COMBINACION_MIN = 10; 
+const int RANGO_COMBINACION_MAX = 230;
+
+const int COLORES[][3] = {
+  {255, 0, 0},    // Rojo para ninguno
+  {0, 0, 255},    // Azul para cubo liviano
+  {0, 255, 0},    // Verde para cubo mediano
+  {255, 165, 0},  // Naranja para cubo pesado
+  {255, 255, 255} // Blanco para combinación de los tres cubos
+};
+
+void setup() {
+  pinMode(s_1, INPUT);
+  pinMode(s_2, INPUT);
+  pinMode(s_3, INPUT); // Configura el tercer sensor de toque como entrada
+  pinMode(s_f, INPUT);
+  pinMode(force_rgb_r, OUTPUT);
+  pinMode(force_rgb_g, OUTPUT);
+  pinMode(force_rgb_b, OUTPUT);
+  pinMode(touch_rgb_r, OUTPUT);
+  pinMode(touch_rgb_g, OUTPUT);
+  pinMode(touch_rgb_b, OUTPUT);
+  Serial.begin(9600);
+}
+
+void loop() {
+  s_actual_1 = digitalRead(s_1);
+  s_actual_2 = digitalRead(s_2);
+  s_actual_3 = digitalRead(s_3); // Lee el estado del tercer sensor de toque
+  fuerza = analogRead(s_f);
+
+  Serial.print("Fuerza registrada: ");
+  Serial.println(fuerza);
+
+  int tipo_cubo = detectarTipoCubo(fuerza);
+
+  Serial.print("Tipo de cubo detectado: ");
+  switch (tipo_cubo) {
+    case 0:
+      Serial.println("Ninguno");
+      setColor(force_rgb_r, force_rgb_g, force_rgb_b, COLORES[0][0], COLORES[0][1], COLORES[0][2]);
+      break;
+    case 1:
+      Serial.println("ISA");
+      setColor(force_rgb_r, force_rgb_g, force_rgb_b, COLORES[1][0], COLORES[1][1], COLORES[1][2]);
+      break;
+    case 2:
+      Serial.println("SO");
+      setColor(force_rgb_r, force_rgb_g, force_rgb_b, COLORES[2][0], COLORES[2][1], COLORES[2][2]);
+      break;
+    case 3:
+      Serial.println("APP");
+      setColor(force_rgb_r, force_rgb_g, force_rgb_b, COLORES[3][0], COLORES[3][1], COLORES[3][2]);
+      break;
+    case 4:
+      Serial.println("Combinación de los tres cubos");
+      setColor(force_rgb_r, force_rgb_g, force_rgb_b, COLORES[4][0], COLORES[4][1], COLORES[4][2]);
+      break;
+  }
+
+  // Imprimir estado de los sensores de toque
+  Serial.print("Sensor de toque: ");
+  if (s_actual_1 == HIGH) {
+    Serial.print("activo 1 ");
+    setColor(touch_rgb_r, touch_rgb_g, touch_rgb_b, 0, 255, 255); // Cyan
+  }
+  if (s_actual_2 == HIGH) {
+    Serial.print("activo 2 ");
+    setColor(touch_rgb_r, touch_rgb_g, touch_rgb_b, 255, 255, 0); // Amarillo
+  }
+  if (s_actual_3 == HIGH) {
+    Serial.print("activo 3 ");
+    setColor(touch_rgb_r, touch_rgb_g, touch_rgb_b, 255, 0, 255); // Magenta
+  }
+  if (s_actual_1 == HIGH && s_actual_2 == HIGH && s_actual_3 == HIGH) {
+    // Si los tres sensores están activos, encender el LED en blanco con toda la intensidad
+    setColor(touch_rgb_r, touch_rgb_g, touch_rgb_b, 255, 255, 255); // Blanco brillante
+  } else if ((s_actual_1 == HIGH && s_actual_2 == HIGH) || (s_actual_2 == HIGH && s_actual_3 == HIGH) || (s_actual_1 == HIGH && s_actual_3 == HIGH)) {
+    // Si dos sensores están activos, encender el LED en blanco tenue
+    setColor(touch_rgb_r, touch_rgb_g, touch_rgb_b, 0, 0, 135); // Blanco tenue
+  } else if (s_actual_1 == LOW && s_actual_2 == LOW && s_actual_3 == LOW) {
+    // Apagar el LED RGB si ningún sensor está activo
+    setColor(touch_rgb_r, touch_rgb_g, touch_rgb_b, 0, 0, 0);
+  }
+  Serial.println();
+
+  delay(100);
+}
+
+int detectarTipoCubo(int fuerza) {
+  if (fuerza >= RANGO_LIVIANO_MIN && fuerza <= RANGO_LIVIANO_MAX) {
+    return 1; // Cubo liviano
+  } else if (fuerza >= RANGO_MEDIANO_MIN && fuerza <= RANGO_MEDIANO_MAX) {
+    return 2; // Cubo mediano
+  } else if (fuerza >= RANGO_PESADO_MIN && fuerza <= RANGO_PESADO_MAX) {
+    return 3; // Cubo pesado
+  } else if (fuerza >= RANGO_COMBINACION_MIN && fuerza <= RANGO_COMBINACION_MAX) {
+    return 4; // Combinación de los tres cubos
+  }
+  return 0; // No se detecta ningún cubo
+}
+
+void setColor(int pin_r, int pin_g, int pin_b, int red, int green, int blue) {
+  analogWrite(pin_r, red);
+  analogWrite(pin_g, green);
+  analogWrite(pin_b, blue);
+}

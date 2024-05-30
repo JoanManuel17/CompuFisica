@@ -1,0 +1,185 @@
+using UnityEngine;
+using System.IO.Ports;
+using TMPro;
+
+public class ArduinoController : MonoBehaviour
+{
+    public TMP_Text forceText;
+    public TMP_Text cubeText;
+    public TMP_Text cubeTypeText; // Nuevo texto para mostrar el tipo de componente detectado
+    public GameObject pressureIndicator; // Esfera para el sistema de presión
+    public GameObject touchIndicator; // Esfera para el sistema de toque
+
+    SerialPort serialPort;
+    int currentPressure = 0;
+    bool cubeTouched1 = false;
+    bool cubeTouched2 = false;
+    bool cubeTouched3 = false;
+    string cubeType = "Ninguno"; // Variable para almacenar el tipo de componente
+
+    // Colores para los diferentes tipos de cubos
+    Color[] cubeColors = {
+        new Color(1, 0, 0),      // Rojo para ninguno
+        new Color(0, 0, 1),      // Azul para ISA
+        new Color(0, 1, 0),      // Verde para SO
+        new Color(1, 0.65f, 0),  // Naranja para APP
+        new Color(1, 1, 1)       // Blanco para combinación de los tres componentes
+    };
+
+    void Start()
+    {
+        serialPort = new SerialPort("COM4", 9600);
+        serialPort.Open();
+    }
+
+    void Update()
+    {
+        if (serialPort.IsOpen && serialPort.BytesToRead > 0)
+        {
+            try
+            {
+                string data = serialPort.ReadLine();
+                ParseArduinoData(data);
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning("Error al leer datos del puerto serial: " + e.Message);
+            }
+        }
+
+        // Actualiza el mensaje de presión
+        UpdatePressureText(currentPressure);
+
+        // Actualiza el color del indicador de presión
+        pressureIndicator.GetComponent<Renderer>().material.color = GetCubeColor(cubeType);
+
+        // Actualiza el mensaje de toque y color del indicador de toque
+        int touchCount = (cubeTouched1 ? 1 : 0) + (cubeTouched2 ? 1 : 0) + (cubeTouched3 ? 1 : 0);
+        switch (touchCount)
+        {
+            case 1:
+                cubeText.text = "Hay 1 Componente";
+                if (cubeTouched1)
+                {
+                    touchIndicator.GetComponent<Renderer>().material.color = new Color(0, 1, 1); // Cian
+                }
+                else if (cubeTouched2)
+                {
+                    touchIndicator.GetComponent<Renderer>().material.color = Color.yellow; // Amarillo
+                }
+                else if (cubeTouched3)
+                {
+                    touchIndicator.GetComponent<Renderer>().material.color = new Color(1, 0, 1); // Magenta
+                }
+                break;
+            case 2:
+                cubeText.text = "Hay 2 Componentes";
+                touchIndicator.GetComponent<Renderer>().material.color = new Color(0, 0, 0.5f); // Azul oscuro
+                break;
+            case 3:
+                cubeText.text = "Están los 3 Componentes";
+                touchIndicator.GetComponent<Renderer>().material.color = Color.white; // Blanco brillante
+                break;
+            default:
+                cubeText.text = "No hay ningún Componente";
+                touchIndicator.GetComponent<Renderer>().material.color = Color.black; // Apagado
+                break;
+        }
+
+        // Actualiza el mensaje del tipo de componente
+        cubeTypeText.text = "Tipo de Componente: " + GetComponentDescription(cubeType);
+    }
+
+    void ParseArduinoData(string data)
+    {
+        if (!string.IsNullOrEmpty(data))
+        {
+            string[] lines = data.Split('\n');
+
+            foreach (string line in lines)
+            {
+                if (line.Contains("Fuerza registrada:"))
+                {
+                    string[] parts = line.Split(':');
+                    if (parts.Length > 1 && int.TryParse(parts[1].Trim(), out int force))
+                    {
+                        currentPressure = force;
+                    }
+                }
+                else if (line.Contains("Tipo de cubo detectado:"))
+                {
+                    string[] parts = line.Split(':');
+                    if (parts.Length > 1)
+                    {
+                        cubeType = parts[1].Trim();
+                    }
+                }
+                else if (line.Contains("Sensor de toque:"))
+                {
+                    cubeTouched1 = line.Contains("activo 1");
+                    cubeTouched2 = line.Contains("activo 2");
+                    cubeTouched3 = line.Contains("activo 3");
+                }
+            }
+        }
+        else
+        {
+            Debug.LogWarning("Los datos recibidos no están en el formato esperado.");
+        }
+    }
+
+    Color GetCubeColor(string cubeType)
+    {
+        switch (cubeType)
+        {
+            case "Ninguno":
+                return cubeColors[0]; // Rojo para ninguno
+
+            case "ISA":
+                return cubeColors[1]; // Azul
+            case "SO":
+                return cubeColors[2]; // Verde
+            case "APP":
+                return cubeColors[3]; // Naranja
+            case "Combinacion de los tres cubos":
+                return cubeColors[4]; // Blanco
+            default:
+                return cubeColors[4]; // Blanco
+        }
+    }
+
+    void UpdatePressureText(int pressure)
+    {
+        // Gradación de colores para el texto de presión
+        Color textColor = Color.Lerp(Color.red, Color.blue, (float)pressure / 900f);
+        forceText.color = textColor;
+        forceText.text = "Presión: " + pressure.ToString();
+    }
+
+    string GetComponentDescription(string cubeType)
+    {
+        switch (cubeType)
+        {
+            case "Ninguno":
+                return "Todavía no se ha colocado Ningún Componente";
+            case "ISA":
+                return "ISA (Instruction Set Architecture) es el conjunto de instrucciones y la arquitectura de programación fundamental que un procesador puede ejecutar. Define las operaciones básicas que el hardware puede realizar, incluyendo aritmética, lógica, control de flujo y acceso a memoria.";
+            case "SO":
+                return "El Sistema Operativo (SO) es el software que actúa como intermediario entre los usuarios y el hardware del computador. Gestiona los recursos del hardware y proporciona servicios y funciones comunes para las aplicaciones.";
+            case "APP":
+                return "Las aplicaciones son programas de software diseñados para realizar tareas específicas para el usuario final, como procesamiento de texto, navegación web, edición multimedia, juegos, etc.";
+            case "Combinacion de los tres cubos":
+                return "Al unir los 3 Componentes tenemos que las aplicaciones permiten al usuario interactuar con el sistema para realizar tareas específicas. El SO actúa como intermediario, gestionando recursos y facilitando la comunicación entre las aplicaciones y el hardware. La ISA define cómo el hardware ejecuta las instrucciones y realiza operaciones básicas. Juntos, estos componentes forman la base de un sistema multimedia funcional y eficiente.";
+            default:
+                return "Al unir los 3 Componentes tenemos que las aplicaciones permiten al usuario interactuar con el sistema para realizar tareas específicas. El SO actúa como intermediario, gestionando recursos y facilitando la comunicación entre las aplicaciones y el hardware. La ISA define cómo el hardware ejecuta las instrucciones y realiza operaciones básicas. Juntos, estos componentes forman la base de un sistema multimedia funcional y eficiente.";
+        }
+    }
+
+    void OnApplicationQuit()
+    {
+        if (serialPort != null && serialPort.IsOpen)
+        {
+            serialPort.Close();
+        }
+    }
+}

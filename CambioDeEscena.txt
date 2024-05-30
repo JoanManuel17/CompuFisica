@@ -1,0 +1,34 @@
+using UnityEngine;
+using UnityEngine.SceneManagement; // Necesario para SceneManager
+using UnityEngine.UI; // Necesario para UI
+
+public class SceneChanger : MonoBehaviour
+{
+    public string sceneName; // Nombre de la escena a la que quieres cambiar
+
+    void Start()
+    {
+        // Obtén el componente Button y asigna los métodos a los eventos onClick
+        Button button = GetComponent<Button>();
+        if (button != null)
+        {
+            button.onClick.AddListener(ChangeScene);
+        }
+    }
+
+    // Método para cambiar de escena
+    public void ChangeScene()
+    {
+        SceneManager.LoadScene(sceneName);
+    }
+
+    // Método para cerrar la aplicación
+    public void ExitApplication()
+    {
+        Application.Quit();
+#if UNITY_EDITOR
+        // Para asegurarse de que la aplicación se detiene también en el editor de Unity
+        UnityEditor.EditorApplication.isPlaying = false;
+#endif
+    }
+}
